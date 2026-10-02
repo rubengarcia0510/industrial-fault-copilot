@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: industrial-fault-copilot
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+# Reserved for future stages. None are required to start the application.
+# Secrets must be supplied via environment variables, never committed.
+evolus:
+  api-key: ${EVOLUS_API_KEY:}
+  application-id: ${EVOLUS_APPLICATION_ID:}
+  agent-id: ${EVOLUS_AGENT_ID:}
+  base-url: ${EVOLUS_BASE_URL:https://api.evolus.ai/api/v1}
+
+amd:
+  model-endpoint: ${AMD_MODEL_ENDPOINT:}
