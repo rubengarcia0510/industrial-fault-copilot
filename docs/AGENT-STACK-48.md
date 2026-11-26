@@ -43,50 +43,97 @@ Excluded:
 - Java 21.
 - Existing Spring Boot 4.0.8 / Spring WebFlux baseline.
 - Gradle Kotlin DSL.
-- Spring AI 2.0.x, subject to dependency compatibility verification during the build window.
+- Spring AI 2.0.x, subject to dependency compatibility verification during implementation.
 - Google Gemini API, using a currently available Flash model selected through configuration.
 - Docker.
 
 Budget target: USD 0. Do not enable billing or rely on paid services. API key and model name must come from environment variables. If free-tier quota is unavailable, the demo must report the provider as unavailable; it must not pretend a fallback result came from Gemini.
 
-## 4. Existing API baseline and exact implementation targets
+## 4. Repository baseline and implementation targets
 
-PR #4 currently introduces these files and endpoint:
+The current `main` branch contains the initial Java/Spring Boot backend baseline and project documentation. It does not contain the diagnostic API, evidence retrieval, Gemini adapter, or diagnostic orchestration described in this plan.
+
+PR #4 (`feat/APIACC-20-evolus-agent`) was closed without being merged. Its proposed API classes and endpoint are not part of `main` and must not be treated as existing code or as an implementation dependency. Do not merge or reuse its Evolus/AMD work.
+
+Implement the independent MVP on the current baseline. The Jira backlog under epic APIACC-22 is the implementation source of truth:
+
+- APIACC-23 — HTTP contract and request validation.
+- APIACC-24 — Deterministic technical evidence repository.
+- APIACC-25 — Gemini provider and structured output.
+- APIACC-26 — Evidence-based orchestration and safe escalation.
+- APIACC-27 — Integration and acceptance tests.
+- APIACC-28 — Docker, README, and reproducible demo.
+
+Respect the dependency relationships recorded in Jira. Do not start dependent implementation work before its prerequisites are integrated.
+
+### 4.1 HTTP contract and validation — APIACC-23
+
+Create:
 
 - `src/main/java/com/rubengarcia/industrialfaultcopilot/api/DiagnosticController.java`
-  - `POST /api/v1/diagnostics`
-  - Add `@Valid` to the request body and preserve the endpoint contract.
-- `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/DiagnosticService.java`
-  - Replace the placeholder response in `diagnose(DiagnosticRequest request)` with orchestration.
-  - It must not call the Gemini SDK or HTTP client directly.
+  - Expose `POST /api/v1/diagnostics`.
+  - Validate the request body with `@Valid`.
+  - Delegate to the application service; do not contain retrieval or model orchestration.
+
 - `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/dto/DiagnosticRequest.java`
-  - Keep the existing package and record.
   - Required non-blank fields: `machine` and `symptom`.
   - Optional fields: `alarmCode` and `observations`.
-  - `observations` is free-text context supplied by the operator and must not be treated as verified technical evidence.
-- `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/dto/DiagnosticResponse.java`
-  - Preserve the existing response fields unless tests demonstrate a necessary, reviewed change.
+  - Treat observations as unverified operator context, never as technical evidence.
 
-Add the following application and adapter types:
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/dto/DiagnosticResponse.java`
+  - Define a structured response for summary, hypotheses, safe checks, evidence references, uncertainty, and escalation.
+  - Ensure every evidence reference maps to a retrieved document ID and section.
+
+Confirm existing package conventions and the actual baseline before creating files. These paths are implementation targets, not claims that the files already exist.
+
+### 4.2 Deterministic evidence retrieval — APIACC-24
+
+Create:
+
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/TechnicalEvidence.java`
+  - Evidence record containing documentId, title, excerpt, sourceLocation, and provenance where needed.
+
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/TechnicalDocumentRepository.java`
+  - Retrieval port.
+  - Method: `Mono<List<TechnicalEvidence>> search(DiagnosticRequest request)`.
+
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/TechnicalKnowledgeService.java`
+  - Delegates to the repository and returns only relevant matching evidence.
+
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/ClasspathTechnicalDocumentRepository.java`
+  - Small deterministic implementation over curated classpath demo documents. No vector database.
+
+Store demo documents under `src/main/resources/knowledge/`.
+
+Each document must identify its stable ID, provenance, and section. Use only independently authored synthetic material or public material with verifiable redistribution rights.
+
+### 4.3 Gemini provider — APIACC-25
+
+Create:
 
 - `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/DiagnosticProvider.java`
   - Application port.
   - Method: `Mono<DiagnosticResponse> diagnose(DiagnosticRequest request, List<TechnicalEvidence> evidence)`.
-- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/TechnicalEvidence.java`
-  - Evidence record containing documentId, title, excerpt, and sourceLocation.
-- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/TechnicalDocumentRepository.java`
-  - Retrieval port.
-  - Method: `Mono<List<TechnicalEvidence>> search(DiagnosticRequest request)`.
-- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/TechnicalKnowledgeService.java`
-  - Delegates to the repository and returns only matching evidence.
-- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/ClasspathTechnicalDocumentRepository.java`
-  - Small deterministic implementation over curated classpath demo documents. No vector database.
+
 - `src/main/java/com/rubengarcia/industrialfaultcopilot/ai/GeminiDiagnosticAdapter.java`
-  - Implements DiagnosticProvider using Spring AI.
+  - Implements DiagnosticProvider using a compatible Spring AI integration.
   - Receives the request and retrieved evidence.
   - Requests a constrained structured response.
   - Must not add facts, alarm meanings, sources, or procedures absent from evidence.
   - Applies a bounded timeout and controlled error handling.
+  - Reads API key and model from environment-backed configuration; never logs secrets.
+  - If credentials or quota are unavailable, reports provider unavailability instead of fabricating a Gemini result.
+
+### 4.4 Application orchestration — APIACC-26
+
+Create or implement:
+
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/DiagnosticService.java`
+  - Orchestrates TechnicalKnowledgeService and DiagnosticProvider.
+  - Does not call the Gemini SDK or HTTP client directly.
+  - If evidence is empty, returns an explicit insufficient-evidence result with escalation and does not invoke the provider.
+  - Validates that returned evidence references belong to the retrieved evidence set.
+  - Applies conservative escalation for unsafe, ambiguous, unsupported, or provider-failure cases.
 
 Keep the implementation small. Do not introduce extra layers or abstractions unless required by the existing code or tests.
 
@@ -129,7 +176,7 @@ Tests must not require a real Gemini API key or network access.
 - Optional alarmCode is accepted.
 - Optional observations are accepted and propagated to the application service.
 - Observations are not mistaken for retrieved technical evidence.
-- Existing response JSON contract is preserved.
+- Response JSON contract is verified.
 
 ### Application orchestration
 - Matching evidence is passed to the provider.
@@ -156,7 +203,14 @@ Tests must not require a real Gemini API key or network access.
 - Timeout and provider error are handled.
 - Missing API key does not expose secrets or fabricate a response.
 
-Use mocked provider/repository implementations for deterministic unit tests. No test may call Gemini.
+### Integration and acceptance — APIACC-27
+- Verify the complete request-to-response flow.
+- Verify evidence-supported and no-evidence scenarios.
+- Verify conflicting evidence, unsafe input, invalid requests, provider failures, and timeouts.
+- Run the complete Gradle build.
+- Tests must remain deterministic and must not call Gemini or require external network access.
+
+Use mocked provider/repository implementations for deterministic unit tests.
 
 ## 8. Acceptance criteria
 
@@ -203,7 +257,7 @@ Do not add scope to compensate for Saturday unavailability. If time is short, pr
 
 Only if all acceptance criteria pass and there is remaining time, consider exposing the same application use case through one MCP tool. This must reuse the application service, preserve evidence and escalation metadata, and must not create a machine-control capability. It is not required for submission.
 
-## 11. Submission proof
+## 11. Submission proof — APIACC-28
 
 Prepare:
 - Public GitHub repository with setup and architecture documentation.
