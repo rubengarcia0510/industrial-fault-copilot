@@ -17,7 +17,7 @@ The agent searches a small, curated technical knowledge base and returns:
 - References to the exact documents/sections used.
 - An explicit uncertainty level and whether a technician must intervene.
 
-This is an independent hackathon project. It is informed only by the general business problem; it does not reuse Juanchi's prototype, code, architecture, prompts, manuals, images, documents, data, or other non-public materials.
+The project is independently developed and uses only public, openly licensed, or independently authored synthetic demonstration material.
 
 ## 2. Explicit MVP boundaries
 
@@ -33,7 +33,6 @@ Included:
 Excluded:
 - Any connection to printers, PLCs, controllers, sensors, vendor networks, or machine APIs.
 - Machine control, parameter changes, or automated maintenance actions.
-- Juanchi's prototype or any materials supplied privately by him.
 - Confidential manuals, photographs, diagrams, logs, machine identifiers, or operational data.
 - Claims that synthetic demo documents are genuine manufacturer manuals.
 - Vector database, complex RAG infrastructure, multi-agent orchestration, frontend application, and production deployment.
@@ -62,7 +61,9 @@ PR #4 currently introduces these files and endpoint:
   - It must not call the Gemini SDK or HTTP client directly.
 - `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/dto/DiagnosticRequest.java`
   - Keep the existing package and record.
-  - Add validation: machine and symptom are required and non-blank; alarmCode is optional.
+  - Required non-blank fields: `machine` and `symptom`.
+  - Optional fields: `alarmCode` and `observations`.
+  - `observations` is free-text context supplied by the operator and must not be treated as verified technical evidence.
 - `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/dto/DiagnosticResponse.java`
   - Preserve the existing response fields unless tests demonstrate a necessary, reviewed change.
 
@@ -93,7 +94,7 @@ Keep the implementation small. Do not introduce extra layers or abstractions unl
 
 Store demo documents under `src/main/resources/knowledge/`.
 
-Every document must state its provenance and whether it is public/openly licensed or synthetic. Do not copy material from Juanchi or from inaccessible/copyright-restricted manuals.
+Every document must state its provenance and whether it is public/openly licensed or synthetic. Use only material that can be independently included and redistributed.
 
 For the hackathon demo, synthetic documents are acceptable only when visibly labelled as synthetic examples. Their content must not be represented as verified manufacturer instructions or safe repair procedures.
 
@@ -111,6 +112,7 @@ The agent may explain evidence and suggest only low-risk, non-invasive observati
 Rules:
 - Distinguish documented facts from hypotheses.
 - Never invent alarm-code meanings, machine specifications, sources, or procedures.
+- Treat operator observations as unverified input, not as authoritative documentation.
 - Every technical claim must be supported by returned evidence or explicitly labelled as a general, unverified possibility.
 - Unknown or conflicting information must be stated plainly.
 - Escalate electrical, mechanical, thermal, pressure-related, safety-interlock, or otherwise hazardous cases to a qualified technician.
@@ -125,10 +127,13 @@ Tests must not require a real Gemini API key or network access.
 - Blank/missing machine is rejected.
 - Blank/missing symptom is rejected.
 - Optional alarmCode is accepted.
+- Optional observations are accepted and propagated to the application service.
+- Observations are not mistaken for retrieved technical evidence.
 - Existing response JSON contract is preserved.
 
 ### Application orchestration
 - Matching evidence is passed to the provider.
+- Operator observations are passed as contextual input.
 - Empty evidence returns insufficient evidence and escalation without invoking Gemini.
 - Provider success is returned with source references.
 - Provider error/timeout produces a controlled failure and escalation.
@@ -146,6 +151,7 @@ Tests must not require a real Gemini API key or network access.
 - Structured valid response maps correctly.
 - Invalid/malformed output is rejected.
 - Evidence is included in model input.
+- Operator observations are clearly distinguished from technical evidence in model input.
 - Unsupported claims or unknown source IDs are rejected.
 - Timeout and provider error are handled.
 - Missing API key does not expose secrets or fabricate a response.
@@ -157,15 +163,16 @@ Use mocked provider/repository implementations for deterministic unit tests. No 
 The MVP is complete when:
 
 1. `POST /api/v1/diagnostics` validates its input.
-2. The service retrieves relevant technical evidence.
-3. No-evidence cases stop before the model call and require escalation.
-4. Gemini returns a structured diagnostic grounded in retrieved evidence.
-5. Every returned source maps to a real document ID and location in the demo knowledge base.
-6. Unsafe, ambiguous, unsupported, and provider-failure cases are handled conservatively.
-7. Automated tests pass without external credentials.
-8. `./gradlew build` passes.
-9. Docker image builds and the documented demo request can be reproduced.
-10. Repository and presentation clearly identify this as an independent hackathon implementation using public or synthetic demo material.
+2. The request accepts machine, symptom, optional alarmCode, and optional observations.
+3. The service retrieves relevant technical evidence.
+4. No-evidence cases stop before the model call and require escalation.
+5. Gemini returns a structured diagnostic grounded in retrieved evidence.
+6. Every returned source maps to a real document ID and location in the demo knowledge base.
+7. Unsafe, ambiguous, unsupported, and provider-failure cases are handled conservatively.
+8. Automated tests pass without external credentials.
+9. `./gradlew build` passes.
+10. Docker image builds and the documented demo request can be reproduced.
+11. Repository and presentation clearly identify this as an independent hackathon implementation using public or synthetic demo material.
 
 ## 9. Build-window plan (Argentina time)
 
@@ -205,4 +212,4 @@ Prepare:
 - Project description that states the independent scope and the lack of direct machine connectivity.
 - Cover image and concise presentation.
 
-Do not identify Juanchi, his print shop, his collaborators, or his existing prototype in public materials.
+Public materials must describe only this independent implementation, its own functionality, and its public or synthetic demo sources.
