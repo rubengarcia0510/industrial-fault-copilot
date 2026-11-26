@@ -10,7 +10,7 @@ The repository currently contains the initial Java/Spring Boot backend baseline.
 
 See [the implementation plan](docs/AGENT-STACK-48.md) for the approved scope, architecture, safety constraints, implementation targets, and acceptance criteria.
 
-## MVP capabilities
+## Planned MVP capabilities
 
 The planned MVP will allow an operator to submit:
 - Equipment identifier or make/model.
@@ -43,15 +43,70 @@ The agent must not invent technical evidence or present synthetic material as ge
 - Google Gemini API (planned)
 - Docker
 
+## Prerequisites
+
+- Java 21
+- Docker, only if you want to build and run the container image.
+
+The repository includes the Gradle Wrapper, so a separate Gradle installation is not required.
+
+## Run locally
+
+Start the application:
+
+```bash
+./gradlew bootRun
+```
+
+Check the health endpoint:
+
+```bash
+curl http://localhost:8080/actuator/health
+```
+
+The diagnostic API is not implemented yet.
+
+## Test
+
+Run the test suite:
+
+```bash
+./gradlew test
+```
+
+## Build
+
+Build the application:
+
+```bash
+./gradlew build
+```
+
+## Docker
+
+Build the image:
+
+```bash
+docker build -t industrial-fault-copilot .
+```
+
+Run the container:
+
+```bash
+docker run --rm -p 8080:8080 industrial-fault-copilot
+```
+
+Check container health:
+
+```bash
+curl http://localhost:8080/actuator/health
+```
+
 ## Configuration
 
 The planned Gemini integration will obtain its API key and model configuration from environment variables. Secrets must never be committed.
 
 The target budget is USD 0. The application must handle unavailable credentials or free-tier quota without fabricating a model response.
-
-## Build and test
-
-The exact build and run instructions will be maintained here as the implementation baseline evolves. Tests must remain deterministic and must not require a real Gemini API key or external network access.
 
 ## Demo and submission
 
