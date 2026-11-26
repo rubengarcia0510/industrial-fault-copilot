@@ -1,312 +1,208 @@
 # Agent Stack 48 — Implementation Plan
 
-## 1. Objective
+## 1. Goal
 
-Evolve Industrial Fault Copilot into a specialized industrial
-diagnostic agent with a reusable MCP server.
+Build **Industrial Fault Copilot**, an independent specialized AI agent that helps an operator understand and perform an initial diagnosis of faults in digital printing equipment.
 
-The MVP receives equipment information, symptoms and alarm codes,
-returns evidence-based diagnostic results and exposes the same
-capabilities through MCP.
+The operator submits:
+- Equipment make/model or a descriptive equipment identifier.
+- The observed symptom.
+- An optional alarm/error code.
+- Optional operator observations.
 
-No direct machinery control is included.
+The agent searches a small, curated technical knowledge base and returns:
+- A concise explanation of what the available evidence suggests.
+- Possible causes, clearly identified as hypotheses.
+- Safe, non-invasive checks an operator can perform.
+- References to the exact documents/sections used.
+- An explicit uncertainty level and whether a technician must intervene.
 
-## 2. Technology stack
+This is an independent hackathon project. It is informed only by the general business problem; it does not reuse Juanchi's prototype, code, architecture, prompts, manuals, images, documents, data, or other non-public materials.
 
-- Java 21
-- Spring Boot 4.0.8
-- Spring AI 2.0.x
-- Google Gemini API
-- Spring WebFlux
-- MCP Server with Streamable HTTP
-- Gradle Kotlin DSL
-- Docker
-
-Spring AI 2.0.x is selected to remain compatible with the
-existing Spring Boot 4.0.8 baseline.
-
-## 3. Architecture and package structure
-
-Use the existing base package:
-`com.rubengarcia.industrialfaultcopilot`
-
-### diagnostic
-
-`api/DiagnosticController.java`
-- Expose POST `/api/v1/diagnostics`.
-- Validate the request.
-- Delegate to `DiagnosticService`.
-- Return the diagnostic response.
-
-`diagnostic/DiagnosticService.java`
-- Orchestrate the diagnostic use case.
-- Retrieve relevant technical evidence.
-- Invoke the diagnostic provider.
-- Apply escalation rules.
-- Never access Gemini SDK or WebClient directly.
-
-`diagnostic/DiagnosticRequest.java`
-- Fields: machine, symptom and alarmCode.
-- Validate required fields.
-
-`diagnostic/DiagnosticResponse.java`
-- Fields: diagnosis, recommendations, sources and
-  escalationRequired.
-- Preserve the existing API contract unless a reviewed
-  compatibility change is required.
-
-### ai
-
-`ai/DiagnosticProvider.java`
-- Application port for diagnostic generation.
-- Method:
-  `Mono<DiagnosticResponse> diagnose(DiagnosticRequest request, List<TechnicalEvidence> evidence)`
-
-`ai/GeminiDiagnosticAdapter.java`
-- Implement DiagnosticProvider using Spring AI.
-- Convert the request and evidence into a constrained prompt.
-- Request structured output.
-- Reject malformed or unsupported responses.
-- Apply provider timeout and error handling.
-
-`ai/GeminiConfiguration.java`
-- Configure the Google GenAI model.
-- Read credentials and model selection from environment-backed
-  Spring properties.
-- Never store credentials in source control.
-
-### knowledge
-
-`knowledge/TechnicalEvidence.java`
-- Represent a technical source with document ID, title,
-  relevant content and reference location.
-
-`knowledge/TechnicalKnowledgeService.java`
-- Method:
-  `Mono<List<TechnicalEvidence>> search(DiagnosticRequest request)`
-- Retrieve evidence relevant to equipment, symptom and alarm code.
-- Return an empty list when no evidence is available.
-
-`knowledge/TechnicalDocumentRepository.java`
-- Define the retrieval port for technical documents.
-- Method:
-  `Mono<List<TechnicalEvidence>> search(String machine, String symptom, String alarmCode)`
-
-MVP retrieval strategy:
-- Store versioned Markdown technical documents under
-  `src/main/resources/knowledge/`.
-- Include metadata for equipment, manufacturer, alarm codes,
-  document title and source reference.
-- Start with deterministic text and metadata matching.
-- Do not introduce a vector database in the MVP.
-- Keep the repository interface independent from the storage
-  implementation so retrieval can evolve later.
-
-### mcp
-
-`mcp/McpServerConfiguration.java`
-- Configure the Spring AI MCP Server.
-- Use WebFlux and Streamable HTTP.
-- Register the diagnostic tools.
-- Keep the transport behind an explicit security boundary.
-
-`mcp/IndustrialDiagnosticTools.java`
-Expose these tools:
-
-- `searchTechnicalManual(machine, symptom, alarmCode)`
-- `getAlarmCodeDetails(machine, alarmCode)`
-- `getSafetyProcedure(machine, procedureType)`
-- `analyzeEquipmentFault(machine, symptom, alarmCode)`
-
-All tools must delegate to application services.
-They must not access repositories or Gemini directly.
-
-## 4. Gemini configuration
-
-Use Spring AI Google GenAI starter compatible with Spring AI 2.0.x.
-
-Configuration must be externalized through environment variables:
-
-- `GOOGLE_GENAI_API_KEY`
-- `GOOGLE_GENAI_MODEL`
-
-Map these variables through Spring configuration.
-Do not commit API keys or local secret files.
-
-Expected behavior:
-- Missing API key: application startup or readiness must report
-  the integration as unavailable, without exposing secrets.
-- Provider timeout: return a controlled diagnostic failure.
-- Provider error: log safe technical context and require escalation.
-- Invalid structured output: reject it; never fabricate a diagnosis.
-
-## 5. Diagnostic flow
-
-1. Receive and validate the diagnostic request.
-2. Search the technical knowledge repository.
-3. If no relevant evidence exists, mark the result as uncertain
-   and require human escalation.
-4. Invoke DiagnosticProvider with the request and evidence.
-5. Validate the structured response.
-6. Ensure recommendations reference supporting evidence.
-7. Apply escalation rules.
-8. Return the API response.
-
-Unknown alarm codes must remain explicitly unknown.
-The model must not invent alarm meanings, manual references
-or safety procedures.
-
-## 6. Implementation stages and dependencies
-
-### Stage 1 — Complete diagnostic API
-
-Depends on reviewing and merging PR #4.
-
-Files:
-- DiagnosticController
-- DiagnosticService
-- DiagnosticRequest
-- DiagnosticResponse
-- DiagnosticProvider
-
-Acceptance:
-- Existing API contract remains compatible.
-- Request validation is covered by tests.
-- Service orchestration is independent of provider implementation.
-- No Gemini-specific code exists in the diagnostic service.
-
-Tests:
-- Valid request.
-- Invalid request.
-- Provider success.
-- Provider failure.
-- Missing technical evidence.
-- Escalation required.
-
-### Stage 2 — Gemini adapter
-
-Depends on Stage 1.
-
-Files:
-- GeminiConfiguration
-- GeminiDiagnosticAdapter
-
-Acceptance:
-- Gemini receives the request and evidence.
-- Output is mapped to the diagnostic response.
-- Invalid output is rejected.
-- Missing credentials are handled safely.
-- Timeouts and provider errors are controlled.
-
-Tests:
-- Valid structured response.
-- Invalid structured response.
-- Provider timeout.
-- Provider error.
-- Missing API key.
-- Evidence included in model input.
-
-### Stage 3 — Technical knowledge
-
-Depends on the evidence contract from Stage 1.
-
-Files:
-- TechnicalEvidence
-- TechnicalKnowledgeService
-- TechnicalDocumentRepository
-- Markdown document resources
-
-Acceptance:
-- Documents can be retrieved by equipment and alarm code.
-- Each result includes traceable source metadata.
-- Unknown codes return no fabricated information.
-- Empty retrieval results trigger escalation.
-
-Tests:
-- Exact alarm code match.
-- Equipment match.
-- No matching document.
-- Missing metadata.
-- Multiple matching documents.
-- Source reference preservation.
-
-### Stage 4 — MCP server
-
-Depends on Stages 1 and 3.
-
-Files:
-- McpServerConfiguration
-- IndustrialDiagnosticTools
-
-Acceptance:
-- MCP clients can discover the four tools.
-- Tools invoke application services.
-- Tool results preserve evidence and escalation information.
-- No tool can issue machine-control commands.
-- HTTP transport is not exposed publicly without authentication
-  or an explicitly documented trusted network boundary.
-
-Tests:
-- Tool discovery.
-- Each tool execution.
-- Invalid tool arguments.
-- Empty evidence.
-- Diagnostic escalation.
-- Transport security configuration.
-
-### Stage 5 — Integration and demonstration
-
-Depends on Stages 1–4.
-
-Acceptance:
-- Complete diagnostic flow works from HTTP API.
-- The same diagnostic capabilities work through MCP.
-- Results include traceable evidence.
-- Uncertain cases require human intervention.
-- Docker image builds successfully.
-- Demo can be reproduced from documented instructions.
-
-Validation commands:
-- `./gradlew test`
-- `./gradlew build`
-- `docker build -t industrial-fault-copilot .`
-
-## 7. Safety requirements
-
-- Never invent technical evidence.
-- Unknown alarm codes must be identified as unknown.
-- Recommendations must include supporting sources.
-- Uncertain or potentially dangerous cases require human review.
-- No direct machinery control in the MVP.
-- Do not expose credentials, prompts containing secrets,
-  or sensitive operational data in logs.
-- MCP transport must have an explicit security boundary.
-
-## 8. Scope boundaries
+## 2. Explicit MVP boundaries
 
 Included:
-- Industrial diagnostic API.
-- Gemini-backed diagnostic provider.
-- Search over versioned technical documents.
-- MCP tools exposing the same application capabilities.
-- Automated tests and reproducible Docker demonstration.
+- Digital printing equipment as the target domain.
+- HTTP diagnostic API.
+- Gemini-backed diagnostic generation.
+- Retrieval from a small set of public, openly licensed, or independently authored synthetic demo documents.
+- Traceable evidence in every supported diagnosis.
+- Human escalation when evidence is missing, ambiguous, or potentially unsafe.
+- Automated tests and a reproducible Docker demo.
 
-Excluded from MVP:
-- Direct PLC or machine control.
-- Automatic equipment parameter changes.
-- Vector database and semantic indexing.
-- Unverified manufacturer integrations.
-- Production deployment infrastructure.
+Excluded:
+- Any connection to printers, PLCs, controllers, sensors, vendor networks, or machine APIs.
+- Machine control, parameter changes, or automated maintenance actions.
+- Juanchi's prototype or any materials supplied privately by him.
+- Confidential manuals, photographs, diagrams, logs, machine identifiers, or operational data.
+- Claims that synthetic demo documents are genuine manufacturer manuals.
+- Vector database, complex RAG infrastructure, multi-agent orchestration, frontend application, and production deployment.
+- MCP server in the MVP. It is optional stretch work only after all MVP acceptance criteria pass.
 
-## 9. Definition of done
+## 3. Stack and constraints
 
-The project is ready for the hackathon demonstration when:
+- Java 21.
+- Existing Spring Boot 4.0.8 / Spring WebFlux baseline.
+- Gradle Kotlin DSL.
+- Spring AI 2.0.x, subject to dependency compatibility verification during the build window.
+- Google Gemini API, using a currently available Flash model selected through configuration.
+- Docker.
 
-1. A user can submit machine, symptom and alarm code.
-2. The system retrieves relevant technical evidence.
-3. Gemini produces a validated structured diagnostic response.
-4. Recommendations include traceable sources.
-5. Unknown or uncertain cases require human escalation.
-6. An MCP-compatible client can discover and invoke the tools.
-7. Automated tests and Docker build pass.
-8. Setup and demo instructions are documented.
+Budget target: USD 0. Do not enable billing or rely on paid services. API key and model name must come from environment variables. If free-tier quota is unavailable, the demo must report the provider as unavailable; it must not pretend a fallback result came from Gemini.
+
+## 4. Existing API baseline and exact implementation targets
+
+PR #4 currently introduces these files and endpoint:
+
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/api/DiagnosticController.java`
+  - `POST /api/v1/diagnostics`
+  - Add `@Valid` to the request body and preserve the endpoint contract.
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/DiagnosticService.java`
+  - Replace the placeholder response in `diagnose(DiagnosticRequest request)` with orchestration.
+  - It must not call the Gemini SDK or HTTP client directly.
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/dto/DiagnosticRequest.java`
+  - Keep the existing package and record.
+  - Add validation: machine and symptom are required and non-blank; alarmCode is optional.
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/dto/DiagnosticResponse.java`
+  - Preserve the existing response fields unless tests demonstrate a necessary, reviewed change.
+
+Add the following application and adapter types:
+
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/diagnostic/DiagnosticProvider.java`
+  - Application port.
+  - Method: `Mono<DiagnosticResponse> diagnose(DiagnosticRequest request, List<TechnicalEvidence> evidence)`.
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/TechnicalEvidence.java`
+  - Evidence record containing documentId, title, excerpt, and sourceLocation.
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/TechnicalDocumentRepository.java`
+  - Retrieval port.
+  - Method: `Mono<List<TechnicalEvidence>> search(DiagnosticRequest request)`.
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/TechnicalKnowledgeService.java`
+  - Delegates to the repository and returns only matching evidence.
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/knowledge/ClasspathTechnicalDocumentRepository.java`
+  - Small deterministic implementation over curated classpath demo documents. No vector database.
+- `src/main/java/com/rubengarcia/industrialfaultcopilot/ai/GeminiDiagnosticAdapter.java`
+  - Implements DiagnosticProvider using Spring AI.
+  - Receives the request and retrieved evidence.
+  - Requests a constrained structured response.
+  - Must not add facts, alarm meanings, sources, or procedures absent from evidence.
+  - Applies a bounded timeout and controlled error handling.
+
+Keep the implementation small. Do not introduce extra layers or abstractions unless required by the existing code or tests.
+
+## 5. Knowledge and source policy
+
+Store demo documents under `src/main/resources/knowledge/`.
+
+Every document must state its provenance and whether it is public/openly licensed or synthetic. Do not copy material from Juanchi or from inaccessible/copyright-restricted manuals.
+
+For the hackathon demo, synthetic documents are acceptable only when visibly labelled as synthetic examples. Their content must not be represented as verified manufacturer instructions or safe repair procedures.
+
+Retrieval starts with deterministic matching against equipment identifier, symptom keywords, and optional alarm code. Every evidence result must preserve a stable document ID, title, and section/location.
+
+If no relevant evidence is found:
+- Do not ask Gemini to invent a diagnosis.
+- Return an explicit insufficient-evidence result.
+- Set escalationRequired to true.
+
+## 6. Diagnostic behavior and safety
+
+The agent may explain evidence and suggest only low-risk, non-invasive observations (for example, checking whether an alarm is still displayed or recording the exact message). It must not instruct an unqualified operator to open electrical cabinets, bypass interlocks, touch energized components, alter machine parameters, or perform repairs.
+
+Rules:
+- Distinguish documented facts from hypotheses.
+- Never invent alarm-code meanings, machine specifications, sources, or procedures.
+- Every technical claim must be supported by returned evidence or explicitly labelled as a general, unverified possibility.
+- Unknown or conflicting information must be stated plainly.
+- Escalate electrical, mechanical, thermal, pressure-related, safety-interlock, or otherwise hazardous cases to a qualified technician.
+- Never control a machine or trigger an external action.
+
+## 7. Test plan
+
+Tests must not require a real Gemini API key or network access.
+
+### API and request validation
+- Valid request reaches the service.
+- Blank/missing machine is rejected.
+- Blank/missing symptom is rejected.
+- Optional alarmCode is accepted.
+- Existing response JSON contract is preserved.
+
+### Application orchestration
+- Matching evidence is passed to the provider.
+- Empty evidence returns insufficient evidence and escalation without invoking Gemini.
+- Provider success is returned with source references.
+- Provider error/timeout produces a controlled failure and escalation.
+- Unsafe or uncertain result requires escalation.
+
+### Knowledge retrieval
+- Equipment and symptom match.
+- Exact alarm-code match.
+- No matching document.
+- Multiple matching documents.
+- Source ID and section are preserved.
+- Synthetic provenance is visible.
+
+### Gemini adapter
+- Structured valid response maps correctly.
+- Invalid/malformed output is rejected.
+- Evidence is included in model input.
+- Unsupported claims or unknown source IDs are rejected.
+- Timeout and provider error are handled.
+- Missing API key does not expose secrets or fabricate a response.
+
+Use mocked provider/repository implementations for deterministic unit tests. No test may call Gemini.
+
+## 8. Acceptance criteria
+
+The MVP is complete when:
+
+1. `POST /api/v1/diagnostics` validates its input.
+2. The service retrieves relevant technical evidence.
+3. No-evidence cases stop before the model call and require escalation.
+4. Gemini returns a structured diagnostic grounded in retrieved evidence.
+5. Every returned source maps to a real document ID and location in the demo knowledge base.
+6. Unsafe, ambiguous, unsupported, and provider-failure cases are handled conservatively.
+7. Automated tests pass without external credentials.
+8. `./gradlew build` passes.
+9. Docker image builds and the documented demo request can be reproduced.
+10. Repository and presentation clearly identify this as an independent hackathon implementation using public or synthetic demo material.
+
+## 9. Build-window plan (Argentina time)
+
+Official window: Friday 11 December 2026, 13:00 to Sunday 13 December 2026, 13:00.
+
+Available work time: Friday 13:00–24:00 (11 hours), Saturday unavailable (0 hours), Sunday 00:00–13:00 (13 hours). Total: 24 effective hours.
+
+### Friday 11 December
+- 13:00–15:00 — Verify baseline, complete API validation and tests.
+- 15:00–18:00 — Implement deterministic knowledge retrieval and safe demo documents.
+- 18:00–22:00 — Implement Gemini adapter, configuration, and mocked tests.
+- 22:00–24:00 — Integrate API, evidence, provider, and escalation flow.
+
+### Saturday 12 December
+- No work scheduled.
+
+### Sunday 13 December
+- 00:00–03:00 — End-to-end tests and failure-path hardening.
+- 03:00–06:00 — Docker build, reproducible demo, and README.
+- 06:00–08:00 — Verify all acceptance criteria and fix critical defects.
+- 08:00–10:00 — Record demo and prepare presentation/cover.
+- 10:00–12:00 — Final repository and submission checks.
+- 12:00–13:00 — Submission buffer.
+
+Do not add scope to compensate for Saturday unavailability. If time is short, prioritize a reliable evidence-grounded agent over MCP, UI, extra integrations, or deployment.
+
+## 10. Post-MVP stretch goal
+
+Only if all acceptance criteria pass and there is remaining time, consider exposing the same application use case through one MCP tool. This must reuse the application service, preserve evidence and escalation metadata, and must not create a machine-control capability. It is not required for submission.
+
+## 11. Submission proof
+
+Prepare:
+- Public GitHub repository with setup and architecture documentation.
+- Reproducible Docker-based demo.
+- Recorded walkthrough showing one evidence-supported diagnosis and one no-evidence/escalation case.
+- Project description that states the independent scope and the lack of direct machine connectivity.
+- Cover image and concise presentation.
+
+Do not identify Juanchi, his print shop, his collaborators, or his existing prototype in public materials.
