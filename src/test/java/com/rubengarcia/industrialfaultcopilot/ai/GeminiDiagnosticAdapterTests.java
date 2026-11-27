@@ -15,7 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 class GeminiDiagnosticAdapterTests {
 
@@ -74,6 +76,46 @@ class GeminiDiagnosticAdapterTests {
         StepVerifier.create(adapter.diagnose(request, List.of(evidence)))
                 .expectNext(response)
                 .verifyComplete();
+    }
+
+    @Test
+    void sendsOperatorObservationsAndTechnicalEvidenceInSeparateSections() {
+        when(callResponseSpec.entity(
+                eq(DiagnosticResponse.class),
+                any()
+        )).thenReturn(response());
+
+        StepVerifier.create(adapter.diagnose(request, List.of(evidence)))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        ArgumentCaptor<String> promptCaptor =
+                ArgumentCaptor.forClass(String.class);
+
+        verify(requestSpec).user(promptCaptor.capture());
+
+        String prompt = promptCaptor.getValue();
+
+        assertTrue(prompt.contains("OPERATOR OBSERVATIONS (UNVERIFIED):"));
+        assertTrue(prompt.contains("The warning appeared during printing"));
+        assertTrue(prompt.contains("TECHNICAL EVIDENCE:"));
+        assertTrue(prompt.contains("DOC-001"));
+        assertTrue(prompt.contains("Check the ventilation openings."));
+        assertTrue(prompt.indexOf("OPERATOR OBSERVATIONS (UNVERIFIED):")
+                < prompt.indexOf("TECHNICAL EVIDENCE:"));
+    }
+
+    @Test
+    void rejectsEmptyProviderResponse() {
+        when(callResponseSpec.entity(
+                eq(DiagnosticResponse.class),
+                any()
+        )).thenReturn(null);
+
+        StepVerifier.create(adapter.diagnose(request, List.of(evidence)))
+                .expectErrorMessage(
+                        "Gemini returned an empty diagnostic response")
+                .verify();
     }
 
     @Test

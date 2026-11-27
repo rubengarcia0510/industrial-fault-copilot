@@ -78,6 +78,9 @@ public class GeminiDiagnosticAdapter implements DiagnosticProvider {
                 .onErrorMap(error -> !(error instanceof GeminiDiagnosticException),
                         error -> new GeminiDiagnosticException(
                                 "Gemini diagnostic provider failed"))
+                .switchIfEmpty(Mono.error(
+                        new GeminiDiagnosticException(
+                                "Gemini returned an empty diagnostic response")))
                 .map(response -> validateReferences(response, suppliedEvidence));
     }
 
