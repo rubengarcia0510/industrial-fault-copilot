@@ -107,6 +107,21 @@ class DiagnosticControllerTests {
     }
 
     @Test
+    void rejectsRequestWhenSymptomIsBlank() {
+        webTestClient.post()
+                .uri("/api/v1/diagnostics")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {
+                          "machine": "Digital printer model X",
+                          "symptom": " "
+                        }
+                        """)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
     void acceptsOptionalFieldsWhenTheyAreOmitted() {
         when(diagnosticService.diagnose(any(DiagnosticRequest.class)))
                 .thenReturn(Mono.just(new DiagnosticResponse(
