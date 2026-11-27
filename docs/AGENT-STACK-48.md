@@ -51,7 +51,13 @@ Budget target: USD 0. Do not enable billing or rely on paid services. API key an
 
 ## 4. Repository baseline and implementation targets
 
-The current `main` branch contains the initial Java/Spring Boot backend baseline and project documentation. It does not contain the diagnostic API, evidence retrieval, Gemini adapter, or diagnostic orchestration described in this plan.
+The repository now contains the initial diagnostic HTTP contract and request validation from APIACC-23, integrated through PR #8 (merge commit `6ff1bb6`).
+
+The deterministic evidence repository (APIACC-24), Gemini provider (APIACC-25), evidence-based orchestration and safe escalation (APIACC-26), integration and acceptance tests (APIACC-27), and reproducible Docker demo (APIACC-28) remain implementation targets.
+
+The project is adopting Hexagonal Architecture (Ports and Adapters) incrementally. The HTTP controller is an inbound adapter; application services coordinate the use case through ports; evidence retrieval and Gemini are outbound adapters. The architecture is not considered complete until these dependency boundaries are implemented and verified.
+
+See [Architecture and GitFlow](ARCHITECTURE-AND-GITFLOW.md) for dependency rules, intended responsibilities, branch conventions, and the change workflow.
 
 PR #4 (`feat/APIACC-20-evolus-agent`) was closed without being merged. Its proposed API classes and endpoint are not part of `main` and must not be treated as existing code or as an implementation dependency. Do not merge or reuse its Evolus/AMD work.
 
@@ -68,7 +74,9 @@ Respect the dependency relationships recorded in Jira. Do not start dependent im
 
 ### 4.1 HTTP contract and validation — APIACC-23
 
-Create:
+**Status: integrated.** APIACC-23 was integrated through PR #8 (merge commit `6ff1bb6`). The following paths and responsibilities describe the delivered contract:
+
+The implementation must preserve these responsibilities:
 
 - `src/main/java/com/rubengarcia/industrialfaultcopilot/api/DiagnosticController.java`
   - Expose `POST /api/v1/diagnostics`.
