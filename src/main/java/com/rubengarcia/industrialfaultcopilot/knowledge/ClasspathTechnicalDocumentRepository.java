@@ -10,6 +10,7 @@ import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.stereotype.Repository;
 
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -42,7 +43,8 @@ public class ClasspathTechnicalDocumentRepository
                 .filter(document -> matchesAlarmCode(document, request.alarmCode()))
                 .map(TechnicalDocument::toEvidence)
                 .sorted(Comparator.comparing(TechnicalEvidence::documentId))
-                .toList());
+                .toList())
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     private List<TechnicalDocument> loadDocuments() throws IOException {
