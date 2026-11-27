@@ -78,6 +78,20 @@ class DiagnosticControllerTests {
     }
 
     @Test
+    void rejectsRequestWhenMachineIsMissing() {
+        webTestClient.post()
+                .uri("/api/v1/diagnostics")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {
+                          "symptom": "Overheating"
+                        }
+                        """)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
     void rejectsRequestWhenMachineIsBlank() {
         webTestClient.post()
                 .uri("/api/v1/diagnostics")
