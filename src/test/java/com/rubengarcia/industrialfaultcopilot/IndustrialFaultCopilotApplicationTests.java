@@ -1,7 +1,5 @@
 package com.rubengarcia.industrialfaultcopilot;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -10,6 +8,5 @@ class IndustrialFaultCopilotApplicationTests {
 
     @Test
     void contextLoads() {
-        assertThat(true).isTrue();
     }
 }
