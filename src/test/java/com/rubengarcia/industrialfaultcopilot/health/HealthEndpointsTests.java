@@ -10,8 +10,12 @@ import java.net.http.HttpResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+
+import com.rubengarcia.industrialfaultcopilot.DiagnosticServiceTestConfiguration;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(DiagnosticServiceTestConfiguration.class)
 class HealthEndpointsTests {
 
     @Value("${local.server.port}")
