@@ -2,6 +2,16 @@ spring:
   application:
     name: industrial-fault-copilot
 
+  ai:
+    model:
+      chat: ${SPRING_AI_MODEL_CHAT:none}
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:}
+        chat:
+          options:
+            model: gemini-2.5-flash
+
 server:
   port: 8080
 
