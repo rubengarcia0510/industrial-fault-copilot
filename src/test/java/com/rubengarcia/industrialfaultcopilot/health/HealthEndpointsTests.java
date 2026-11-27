@@ -10,12 +10,8 @@ import java.net.http.HttpResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-
-import com.rubengarcia.industrialfaultcopilot.DiagnosticServiceTestConfiguration;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(DiagnosticServiceTestConfiguration.class)
 class HealthEndpointsTests {
 
     @Value("${local.server.port}")
@@ -24,13 +20,28 @@ class HealthEndpointsTests {
     private final HttpClient client = HttpClient.newHttpClient();
 
     private HttpResponse<String> get(String path) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).GET().build();
+        HttpRequest request = HttpRequest.newBuilder(
+                URI.create("http://localhost:" + port + path)
+        ).GET().build();
+
+        return client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> post(String path, String body) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(
+                URI.create("http://localhost:" + port + path)
+        )
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+
         return client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     @Test
     void healthReturnsUp() throws Exception {
         HttpResponse<String> response = get("/health");
+
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body()).contains("\"status\":\"UP\"");
     }
@@ -38,6 +49,22 @@ class HealthEndpointsTests {
     @Test
     void actuatorHealthReturnsOk() throws Exception {
         HttpResponse<String> response = get("/actuator/health");
+
         assertThat(response.statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void diagnosticsReturnsUnavailableUntilServiceIsConfigured() throws Exception {
+        HttpResponse<String> response = post(
+                "/api/v1/diagnostics",
+                """
+                {
+                  "machine": "Digital printer model X",
+                  "symptom": "Overheating"
+                }
+                """
+        );
+
+        assertThat(response.statusCode()).isEqualTo(503);
     }
 }
