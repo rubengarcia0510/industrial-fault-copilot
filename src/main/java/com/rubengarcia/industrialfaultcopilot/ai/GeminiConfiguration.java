@@ -1,6 +1,11 @@
 package com.rubengarcia.industrialfaultcopilot.ai;
 
 import com.rubengarcia.industrialfaultcopilot.diagnostic.DiagnosticProvider;
+import com.rubengarcia.industrialfaultcopilot.diagnostic.DiagnosticSafetyPolicy;
+import com.rubengarcia.industrialfaultcopilot.diagnostic.DiagnosticService;
+import com.rubengarcia.industrialfaultcopilot.diagnostic.DiagnosticServiceImpl;
+import com.rubengarcia.industrialfaultcopilot.knowledge.TechnicalKnowledgeService;
+
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -27,5 +32,18 @@ public class GeminiConfiguration {
         }
 
         return new GeminiDiagnosticAdapter(chatClientBuilder.build());
+    }
+
+    @Bean
+    DiagnosticService diagnosticService(
+            TechnicalKnowledgeService knowledgeService,
+            DiagnosticProvider diagnosticProvider,
+            DiagnosticSafetyPolicy safetyPolicy
+    ) {
+        return new DiagnosticServiceImpl(
+                knowledgeService,
+                diagnosticProvider,
+                safetyPolicy
+        );
     }
 }
