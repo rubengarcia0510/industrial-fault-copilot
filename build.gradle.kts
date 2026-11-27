@@ -27,6 +27,7 @@ dependencies {
     implementation("org.springframework.ai:spring-ai-starter-model-google-genai")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.boot:spring-boot-webtestclient")
     testImplementation("org.springframework.boot:spring-boot-starter-webflux-test")
     testImplementation("io.projectreactor:reactor-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
