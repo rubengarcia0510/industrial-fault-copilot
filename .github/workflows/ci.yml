@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
+      - develop
   pull_request:
-    branches: ["main"]
+    branches:
+      - main
+      - develop
 
 jobs:
   build:
@@ -31,3 +35,19 @@ jobs:
 
       - name: Build Docker image
         run: docker build --tag industrial-fault-copilot:ci .
+      - name: Run Docker container and check health
+        run: |
+          docker run -d --name industrial-fault-copilot-ci -p 8080:8080 industrial-fault-copilot:ci
+          healthy=false
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://localhost:8080/actuator/health; then
+              healthy=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$healthy" != "true" ]; then
+            docker logs industrial-fault-copilot-ci
+          fi
+          docker rm -f industrial-fault-copilot-ci
+          test "$healthy" = "true"

@@ -1,0 +1,38 @@
+[
+  {
+    "documentId": "SYN-PRINTER-001",
+    "title": "Thermal system troubleshooting",
+    "section": "Temperature monitoring",
+    "excerpt": "When the printer reports overheating, inspect ventilation paths and verify that cooling fans are operating. Stop operation and escalate if the temperature remains above the permitted range.",
+    "sourceLocation": "synthetic://printer-troubleshooting/thermal-system#temperature-monitoring",
+    "provenance": "Synthetic training example; not manufacturer documentation.",
+    "synthetic": true,
+    "machineKeywords": ["indigo", "digital press", "digital printer"],
+    "symptomKeywords": ["overheating", "high temperature", "temperature alarm"],
+    "alarmCodes": ["TEMP-01"]
+  },
+  {
+    "documentId": "SYN-PRINTER-002",
+    "title": "Cooling and ventilation inspection",
+    "section": "Cooling subsystem",
+    "excerpt": "A recurring temperature alarm may indicate restricted airflow or an impaired cooling subsystem. Record the alarm code and operating conditions before escalating to maintenance.",
+    "sourceLocation": "synthetic://printer-troubleshooting/cooling#inspection",
+    "provenance": "Synthetic training example; not manufacturer documentation.",
+    "synthetic": true,
+    "machineKeywords": ["indigo", "digital press", "digital printer"],
+    "symptomKeywords": ["overheating", "high temperature", "temperature alarm"],
+    "alarmCodes": ["TEMP-01"]
+  },
+  {
+    "documentId": "SYN-PRINTER-003",
+    "title": "Paper feeding troubleshooting",
+    "section": "Paper transport",
+    "excerpt": "When paper feeding is interrupted, inspect the paper path for obstructions and verify that the paper is correctly positioned. Escalate if the issue persists.",
+    "sourceLocation": "synthetic://printer-troubleshooting/paper-feed#transport",
+    "provenance": "Synthetic training example; not manufacturer documentation.",
+    "synthetic": true,
+    "machineKeywords": ["indigo", "digital press", "digital printer"],
+    "symptomKeywords": ["paper jam", "paper feed", "feeding problem"],
+    "alarmCodes": ["PAPER-02"]
+  }
+]

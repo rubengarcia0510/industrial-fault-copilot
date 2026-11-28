@@ -1,0 +1,6 @@
+{
+  "machine": "Digital printer model X",
+  "symptom": "Paper feed interruption",
+  "alarmCode": "PAPER-02",
+  "observations": "The issue occurs during normal printing"
+}

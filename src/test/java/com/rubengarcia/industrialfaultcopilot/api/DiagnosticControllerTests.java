@@ -37,7 +37,8 @@ class DiagnosticControllerTests {
                 List.of("Check external ventilation openings"),
                 List.of(new DiagnosticResponse.EvidenceReference(
                         "printer-guide.pdf",
-                        "Cooling system"
+                        "Cooling system",
+                        "manuals/printer-guide.pdf#cooling-system"
                 )),
                 "The available evidence is limited",
                 false
@@ -66,6 +67,8 @@ class DiagnosticControllerTests {
                 .jsonPath("$.safeChecks[0]").isEqualTo("Check external ventilation openings")
                 .jsonPath("$.evidenceReferences[0].document").isEqualTo("printer-guide.pdf")
                 .jsonPath("$.evidenceReferences[0].section").isEqualTo("Cooling system")
+                .jsonPath("$.evidenceReferences[0].sourceLocation")
+                .isEqualTo("manuals/printer-guide.pdf#cooling-system")
                 .jsonPath("$.uncertainty").isEqualTo("The available evidence is limited")
                 .jsonPath("$.escalationRequired").isEqualTo(false);
 

@@ -1,17 +1,25 @@
-# syntax=docker/dockerfile:1
 FROM eclipse-temurin:21-jdk AS build
+
 WORKDIR /workspace
-COPY gradlew settings.gradle.kts build.gradle.kts ./
-COPY gradle gradle
-RUN chmod +x gradlew && ./gradlew --no-daemon dependencies > /dev/null 2>&1 || true
-COPY src src
-RUN ./gradlew --no-daemon bootJar -x test \
-    && cp build/libs/*[!n].jar app.jar
+
+COPY . .
+
+RUN chmod +x gradlew \
+    && ./gradlew bootJar --no-daemon \
+    && JAR_PATH="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
+    && test -n "$JAR_PATH" \
+    && cp "$JAR_PATH" /workspace/app.jar
 
 FROM eclipse-temurin:21-jre
-RUN useradd --system --no-create-home appuser
+
 WORKDIR /app
+
+RUN useradd --system --uid 10001 appuser
+
 COPY --from=build /workspace/app.jar app.jar
+
 USER appuser
+
 EXPOSE 8080
+
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
