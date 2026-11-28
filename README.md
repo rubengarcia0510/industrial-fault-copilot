@@ -1,37 +1,18 @@
 # Industrial Fault Copilot
 
-Independent specialized AI agent for evidence-based initial diagnosis of faults in digital printing equipment.
+Independent AI-assisted backend for evidence-based initial diagnosis of faults in digital printing equipment.
 
-This project is being developed for the LabLab Agent Stack 48 hackathon. It uses independently authored synthetic demonstration material and, where applicable, public technical documents with verifiable redistribution rights.
+Developed for the LabLab Agent Stack 48 hackathon using independently authored synthetic demonstration material and technical sources with verifiable redistribution rights.
 
-## Project status
+## Implemented capabilities
 
-The repository currently contains the initial Java/Spring Boot backend baseline. The diagnostic API, evidence retrieval, Gemini integration, and diagnostic orchestration are planned MVP work and must not be considered implemented yet.
-
-See [the implementation plan](docs/AGENT-STACK-48.md) for the approved scope, architecture, safety constraints, implementation targets, and acceptance criteria.
-
-## Planned MVP capabilities
-
-The planned MVP will allow an operator to submit:
-- Equipment identifier or make/model.
-- Observed symptom.
-- Optional alarm or error code.
-- Optional operator observations.
-
-The agent will retrieve relevant technical evidence and, when sufficient evidence is available, use Google Gemini to produce a structured diagnostic response containing:
-- Possible causes, explicitly identified as hypotheses.
-- Safe, non-invasive checks.
-- References to supporting documents and sections.
-- Uncertainty and whether escalation to a qualified technician is required.
-
-The agent must not invent technical evidence or present synthetic material as genuine manufacturer documentation.
-
-## Safety boundaries
-
-- No connections to printers, PLCs, controllers, sensors, vendor networks, or machine APIs.
-- No machine control, parameter changes, or automated maintenance actions.
-- No instructions to bypass safety interlocks, open energized equipment, or perform hazardous repairs.
-- Missing, ambiguous, conflicting, or potentially unsafe evidence must result in conservative handling and human escalation.
+- HTTP diagnostic API with request validation.
+- Deterministic retrieval of technical evidence.
+- Google Gemini integration with structured diagnostic responses.
+- Evidence-grounded diagnostic orchestration.
+- Conservative handling and human escalation when evidence is insufficient.
+- Integration tests covering successful and unavailable-provider scenarios.
+- Reproducible Docker-based deployment and demonstration.
 
 ## Technology stack
 
@@ -39,81 +20,95 @@ The agent must not invent technical evidence or present synthetic material as ge
 - Spring Boot 4.0.8
 - Spring WebFlux
 - Gradle Kotlin DSL
-- Spring AI (planned, subject to compatibility verification)
-- Google Gemini API (planned)
+- Spring AI with Google Gemini
 - Docker
 
 ## Prerequisites
 
-- Java 21
-- Docker, only if you want to build and run the container image.
+- Java 21 for local execution and builds.
+- Docker for container builds and execution.
+- A Gemini API key with available quota for live diagnostic requests.
 
-The repository includes the Gradle Wrapper, so a separate Gradle installation is not required.
+The Gradle Wrapper is included. A separate Gradle installation is not required.
+
+## Configuration
+
+The application reads configuration from environment variables:
+
+| Variable | Description | Default |
+|---|---|---|
+| `SPRING_AI_MODEL_CHAT` | Chat provider | `none` |
+| `GEMINI_API_KEY` | Gemini API key | Empty |
+| `GEMINI_MODEL` | Gemini model | `gemini-2.5-flash` |
+
+Keep API keys outside source files and never commit secrets.
+
+The project targets a USD 0 budget. Gemini availability depends on the account's credentials and quota; no paid service is required for automated tests.
 
 ## Run locally
 
 Start the application:
 
-```bash
-./gradlew bootRun
-```
+    ./gradlew bootRun
 
-Check the health endpoint:
+Check application health:
 
-```bash
-curl http://localhost:8080/actuator/health
-```
+    curl --fail http://localhost:8080/actuator/health
 
-The diagnostic API is not implemented yet.
+Run the diagnostic API with Gemini configured:
+
+    SPRING_AI_MODEL_CHAT=google-genai GEMINI_API_KEY="your-api-key" ./gradlew bootRun
 
 ## Test
 
-Run the test suite:
+Run the automated test suite:
 
-```bash
-./gradlew test
-```
+    ./gradlew test
+
+Tests use mocks and do not require a Gemini API key or network access to the model provider.
 
 ## Build
 
 Build the application:
 
-```bash
-./gradlew build
-```
+    ./gradlew build
 
 ## Docker
 
 Build the image:
 
-```bash
-docker build -t industrial-fault-copilot .
-```
+    docker build -t industrial-fault-copilot:demo .
 
-Run the container:
+Run the container with Gemini configured:
 
-```bash
-docker run --rm -p 8080:8080 industrial-fault-copilot
-```
+    docker run -d --name industrial-fault-copilot -p 8080:8080 -e SPRING_AI_MODEL_CHAT=google-genai -e GEMINI_API_KEY="$GEMINI_API_KEY" -e GEMINI_MODEL=gemini-2.5-flash industrial-fault-copilot:demo
 
 Check container health:
 
-```bash
-curl http://localhost:8080/actuator/health
-```
+    curl --fail http://localhost:8080/actuator/health
 
-## Configuration
+Stop and remove the container:
 
-The planned Gemini integration will obtain its API key and model configuration from environment variables. Secrets must never be committed.
+    docker rm -f industrial-fault-copilot
 
-The target budget is USD 0. The application must handle unavailable credentials or free-tier quota without fabricating a model response.
+See [the reproducible Docker demo](docs/DEMO.md) for complete instructions and both diagnostic scenarios.
 
-## Demo and submission
+## Demo scenarios
 
-The final submission will include:
-- A reproducible Docker-based demo.
-- An evidence-supported diagnostic example.
-- A no-evidence case that escalates instead of inventing a diagnosis.
-- A recorded walkthrough and project presentation.
+The reproducible demo covers two scenarios:
 
-This repository describes an independent implementation. It does not contain or rely on confidential customer systems, documents, operational data, or proprietary prototypes.
+- **Evidence available:** `PAPER-02` retrieves synthetic document `SYN-PRINTER-003` and sends the matching evidence to Gemini.
+- **Evidence unavailable:** `PAPER-99` does not invoke the diagnostic provider and returns an escalation response with no evidence references.
+
+Both requests are available under `docs/`.
+
+## Project documentation
+
+- [Project scope, architecture and acceptance criteria](docs/AGENT-STACK-48.md)
+- [Reproducible Docker demo](docs/DEMO.md)
+
+## Budget and independence
+
+The target budget is USD 0. Live Gemini requests depend on available credentials and quota. Automated tests do not require paid services.
+
+This is an independent implementation. It does not contain or rely on confidential customer systems, documents, operational data or proprietary prototypes.
